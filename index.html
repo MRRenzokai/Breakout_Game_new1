@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Game</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            background: #111;
+            border: 2px solid #fff;
+        }
+        .start-screen {
+            margin-top: 20%;
+        }.btn{
+    background-color: blue;
+    border-radius: 1cap;
+    height: 70px;
+    width: 100px;
+    color: aliceblue;
+    text-decoration: none;
+    font-size: 18px;
+  }
+    </style>
+</head>
+<body>
+    <!-- Tampilan Awal untuk Memulai Game -->
+    <div id="startScreen" class="start-screen">
+        <h1>Breakout Game</h1>
+        <button id="startButton" class="btn btn-primary btn-lg">Start Game</button>
+        <a href="main.html" class="btn">Cara Bermain</a>
+        <a href="tentang.html" class="btn">tentang saya</a>
+    </div>
+
+    <!-- Tampilan Canvas Game -->
+    <div id="gameContainer" style="display: none;">
+        <h1>Breakout Game</h1>
+        <p>Score: <span id="score">0</span></p>
+        <canvas id="gameCanvas" width="480" height="320"></canvas>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Variabel Utama
+            const canvas = $("#gameCanvas")[0];
+            const ctx = canvas.getContext("2d");
+
+            const ballRadius = 10;
+            let x, y, dx, dy;
+
+            const paddleHeight = 10;
+            const paddleWidth = 75;
+            let paddleX;
+
+            const brickRowCount = 5;
+            const brickColumnCount = 7;
+            const brickWidth = 60;
+            const brickHeight = 20;
+            const brickPadding = 10;
+            const brickOffsetTop = 30;
+            const brickOffsetLeft = 20;
+
+            let rightPressed = false;
+            let leftPressed = false;
+
+            let score = 0;
+            let bricks = [];
+            let gameInterval;
+
+            // Fungsi untuk Mengatur Posisi Awal Game
+            function resetGame() {
+                x = canvas.width / 2; // Posisi awal bola (tengah canvas)
+                y = canvas.height - 30; // Posisi awal bola di atas paddle
+                dx = 2; // Kecepatan horizontal bola
+                dy = -2; // Kecepatan vertikal bola
+                paddleX = (canvas.width - paddleWidth) / 2; // Posisi awal paddle (tengah)
+
+                score = 0; // Reset skor
+                $("#score").text(score); // Update skor di UI
+
+                // Reset posisi bata
+                bricks = [];
+                for (let c = 0; c < brickColumnCount; c++) {
+                    bricks[c] = [];
+                    for (let r = 0; r < brickRowCount; r++) {
+                        bricks[c][r] = { x: 0, y: 0, status: 1 }; // Bata aktif
+                    }
+                }
+            }
+
+            // Event Listener untuk Kontrol Paddle
+            $(document).keydown(function (e) {
+                if (e.key === "Right" || e.key === "ArrowRight") {
+                    rightPressed = true;
+                } else if (e.key === "Left" || e.key === "ArrowLeft") {
+                    leftPressed = true;
+                }
+            });
+
+            $(document).keyup(function (e) {
+                if (e.key === "Right" || e.key === "ArrowRight") {
+                    rightPressed = false;
+                } else if (e.key === "Left" || e.key === "ArrowLeft") {
+                    leftPressed = false;
+                }
+            });
+
+            // Fungsi untuk Menggambar Bola
+            function drawBall() {
+                ctx.beginPath();
+                ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            // Fungsi untuk Menggambar Paddle
+            function drawPaddle() {
+                ctx.beginPath();
+                ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            // Fungsi untuk Menggambar Bata
+            function drawBricks() {
+                for (let c = 0; c < brickColumnCount; c++) {
+                    for (let r = 0; r < brickRowCount; r++) {
+                        if (bricks[c][r].status === 1) {
+                            const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                            const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                            bricks[c][r].x = brickX;
+                            bricks[c][r].y = brickY;
+                            ctx.beginPath();
+                            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                            ctx.fillStyle = "#007bff";
+                            ctx.fill();
+                            ctx.closePath();
+                        }
+                    }
+                }
+            }
+
+            // Fungsi untuk Deteksi Tabrakan
+            function collisionDetection() {
+                for (let c = 0; c < brickColumnCount; c++) {
+                    for (let r = 0; r < brickRowCount; r++) {
+                        const b = bricks[c][r];
+                        if (b.status === 1) {
+                            if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                                dy = -dy;
+                                b.status = 0; // Bata dihancurkan
+                                score++;
+                                $("#score").text(score); // Update skor
+                                if (score === brickRowCount * brickColumnCount) {
+                                    alert("You win, congratulations!");
+                                    resetGame();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fungsi untuk Menggambar Frame
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Bersihkan canvas
+                drawBricks();
+                drawBall();
+                drawPaddle();
+                collisionDetection();
+
+                // Pantulan bola di dinding
+                if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+                    dx = -dx;
+                }
+                if (y + dy < ballRadius) {
+                    dy = -dy;
+                } else if (y + dy > canvas.height - ballRadius) {
+                    if (x > paddleX && x < paddleX + paddleWidth) {
+                        dy = -dy; // Bola memantul di paddle
+                    } else {
+                        alert("GAME OVER");
+                        resetGame(); // Reset permainan
+                        startGame(); // Restart permainan
+                        return;
+                    }
+                }
+
+                // Gerakan paddle
+                if (rightPressed && paddleX < canvas.width - paddleWidth) {
+                    paddleX += 7;
+                } else if (leftPressed && paddleX > 0) {
+                    paddleX -= 7;
+                }
+
+                x += dx; // Update posisi bola
+                y += dy; // Update posisi bola
+                requestAnimationFrame(draw); // Panggil frame berikutnya
+            }
+
+            // Fungsi untuk Memulai Game
+            function startGame() {
+                resetGame(); // Reset semua elemen
+                draw(); // Mulai menggambar frame
+            }
+
+            // Event untuk Memulai Game
+            $("#startButton").click(function () {
+                $("#startScreen").hide(); // Sembunyikan layar awal
+                $("#gameContainer").show(); // Tampilkan canvas
+                startGame(); // Mulai game
+            });
+        });
+    </script>
+</body>
+</html>
